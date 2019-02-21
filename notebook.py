@@ -8,6 +8,7 @@ import numpy as np
 import os, shutil
 import requests
 import json
+from netCDF4 import Dataset
 
 #import satellite submodules
 from wq_modules import sentinel
@@ -240,3 +241,24 @@ def prepare_model(start_date, end_date, region, path):
     os.rename(base_path+'test_1.mdf', base_path+'test_old.mdf')
     os.rename(base_path+'test_1_v2.mdf',base_path+'test_1.mdf')
     print("PaaS Orchestrator disconnected. Run the model manually")
+
+def temp_map(file, ini_date, end_date, z):
+    dataset_map =  Dataset(file)
+    sd = datetime.datetime.strptime(ini_date, '%Y-%m-%d %H:%M:%S')
+    ed = datetime.datetime.strptime(end_date, '%Y-%m-%d %H:%M:%S')
+    delta_time = (ed-sd).total_seconds()
+
+    layer = int(((-z+35)/38)*35)
+
+    if (delta_time/21600).is_integer:
+        time = (delta_time/21600)
+
+        temp_map = dataset_map.variables["R1"][time][1][layer][:][:]
+        temp_map = np.ma.masked_where(temp_map <= 0, temp_map)
+        plt.figure(1,figsize = (20,15))
+        plt.imshow(np.flip(temp_map.transpose(),0),aspect='auto')
+        plt.colorbar()
+        plt.xlabel('lon')
+        plt.ylabel('lat')
+        plt.title("Map Temp {}, prof = {} meters".format(end_date, z))
+        plt.show()
