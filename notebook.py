@@ -241,11 +241,13 @@ def prepare_model(start_date, end_date, region, path):
     os.rename(base_path+'test_1.mdf', base_path+'test_old.mdf')
     os.rename(base_path+'test_1_v2.mdf',base_path+'test_1.mdf')
     print("PaaS Orchestrator disconnected. Run the model manually")
-
+    return path+region+'/model_'+start_date.strftime('%Y-%m-%d')+'_'+end_date.strftime('%Y-%m-%d')+'/'
+    
 def temp_map(file, ini_date, end_date, z):
+
     dataset_map =  Dataset(file)
-    sd = datetime.datetime.strptime(ini_date, '%Y-%m-%d %H:%M:%S')
-    ed = datetime.datetime.strptime(end_date, '%Y-%m-%d %H:%M:%S')
+    sd = datetime.strptime(ini_date, '%Y-%m-%d %H:%M:%S')
+    ed = datetime.strptime(end_date, '%Y-%m-%d %H:%M:%S')
     delta_time = (ed-sd).total_seconds()
 
     layer = int(((-z+35)/38)*35)
