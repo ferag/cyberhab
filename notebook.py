@@ -49,7 +49,6 @@ def plot_meteo(region_buttons, ini_date, end_date, actions):
 def plot_satellite(region_buttons, ini_date, end_date, actions):
 
     #Check the format date and if end_date > start_date
-    print(type(ini_date.value))
     st_date = ini_date.value
     ed_date = end_date.value
     sd, ed = utils.valid_date(st_date, ed_date)
@@ -80,7 +79,6 @@ def plot_satellite(region_buttons, ini_date, end_date, actions):
         landsat_files = l.__dict__['output']
 
         if onedata_mode == 1:
-            utils.to_onedata(sentinel_files, landsat_files, region)
             utils.clean_temporal_path()
 
         if act == 'water_mask' or act == 'water_surface':
@@ -93,27 +91,67 @@ def plot_satellite(region_buttons, ini_date, end_date, actions):
 
 def find_dataset_type(start_date,end_date,typ,onedata_token):
     headers = {"X-Auth-Token": onedata_token}
-    url = 'https://cloud-90-147-75-163.cloud.ba.infn.it/api/v3/oneprovider/spaces/17d670040b30511bc4848cab56449088'
+    url = "https://vm027.pub.cloud.ifca.es/api/v3/oneprovider/"
+    r = requests.get(url+'spaces',headers=headers)
+    data = json.loads(r.text)
+    space_id = ''
+    for elem in data:
+        if elem['name']==os.environ['ONEDATA_SPACE']:
+            space_id = elem['spaceId']
+    
+    url = 'https://vm027.pub.cloud.ifca.es/api/v3/oneprovider/spaces/'+space_id
     r = requests.get(url, headers=headers)
     space_id = json.loads(r.content)['spaceId']
     print('Onedata space ID: %s' % space_id)
-    index_name = 'region'
-    onedata_cdmi_api = 'https://cloud-90-147-75-163.cloud.ba.infn.it/cdmi/cdmi_objectid/'
-    url = 'https://cloud-90-147-75-163.cloud.ba.infn.it/api/v3/oneprovider/spaces/'+space_id+'/indexes/'+index_name+'/query'
+    index_name = 'region_type__query'
+    onedata_cdmi_api = 'https://vm027.pub.cloud.ifca.es/cdmi/cdmi_objectid/'
+    url = 'https://vm027.pub.cloud.ifca.es/api/v3/oneprovider/spaces/'+space_id+'/indexes/'+index_name+'/query'
     r = requests.get(url, headers=headers)
     response = json.loads(r.content)
-    headers = {'X-Auth-Token': onedata_token, 'X-CDMI-Specification-Version': '1.1.1'}
     result = []
     for e in response:
         #print(e['id'])
         #print('-------------')
-        res = requests.get(onedata_cdmi_api+e['value'],headers=headers)
-        element = json.loads(res.content)
-        if typ in element['objectName'] and check_date(start_date,end_date,element['metadata']['onedata_json']['eml:eml']['dataset']['coverage']['temporalCoverage']['rangeOfDates']['beginDate']['calendarDate'], element['metadata']['onedata_json']['eml:eml']['dataset']['coverage']['temporalCoverage']['rangeOfDates']['endDate']['calendarDate']):
-            print({'beginDate': element['metadata']['onedata_json']['eml:eml']['dataset']['coverage']['temporalCoverage']['rangeOfDates']['beginDate']['calendarDate'], 'endDate': element['metadata']['onedata_json']['eml:eml']['dataset']['coverage']['temporalCoverage']['rangeOfDates']['endDate']['calendarDate'], 'file':element['parentURI']+element['objectName']})
-            result.append({'beginDate': element['metadata']['onedata_json']['eml:eml']['dataset']['coverage']['temporalCoverage']['rangeOfDates']['beginDate']['calendarDate'], 'endDate': element['metadata']['onedata_json']['eml:eml']['dataset']['coverage']['temporalCoverage']['rangeOfDates']['endDate']['calendarDate'], 'file':element['parentURI']+element['objectName']})
+        if typ in e['key']['dataset'] and check_date(start_date,end_date,e['key']['beginDate'], e['key']['endDate']):
+            print({'beginDate': e['key']['beginDate'], 'endDate': e['key']['endDate'], 'file':e['key']['dataset']})
+            result.append({'beginDate': e['key']['beginDate'], 'endDate': e['key']['endDate'], 'file':e['key']['dataset']})
         #print('-------------')
     return result
+
+def find_models(onedata_token):
+    headers = {"X-Auth-Token": onedata_token}
+    url = "https://vm027.pub.cloud.ifca.es/api/v3/oneprovider/"
+    r = requests.get(url+'spaces',headers=headers)
+    data = json.loads(r.text)
+    space_id = ''
+    for elem in data:
+        if elem['name']==os.environ['ONEDATA_SPACE']:
+            space_id = elem['spaceId']
+
+    #TODO handle errors
+    url = 'https://vm027.pub.cloud.ifca.es/api/v3/oneprovider/spaces/'+space_id
+    r = requests.get(url, headers=headers)
+    space_id = json.loads(r.content)['spaceId']
+    print('Searching models')
+    index_name = 'models_region_query'
+    onedata_cdmi_api = 'https://vm027.pub.cloud.ifca.es/cdmi/cdmi_objectid/'
+    url = 'https://vm027.pub.cloud.ifca.es/api/v3/oneprovider/spaces/'+space_id+'/indexes/'+index_name+'/query'
+    r = requests.get(url, headers=headers)
+    response = json.loads(r.content)
+    #headers = {'X-Auth-Token': onedata_token, 'X-CDMI-Specification-Version': '1.1.1'}
+    #result = []
+    #for e in response:
+        #print(e['id'])
+        #print('-------------')
+     #   res = requests.get(onedata_cdmi_api+e['value'],headers=headers)
+     #   element = json.loads(res.content)
+    
+     #   try:
+      #      result.append({'model_output': element['metadata']['onedata_json']['eml:eml']['dataset']['title'], 'beginDate': element['metadata']['onedata_json']['eml:eml']['dataset']['coverage']['temporalCoverage']['rangeOfDates']['beginDate']['calendarDate'], 'endDate': element['metadata']['onedata_json']['eml:eml']['dataset']['coverage']['temporalCoverage']['rangeOfDates']['endDate']['calendarDate']})
+      #  except:
+      #      pass
+    
+    return response
 
 def check_date(start_date, end_date, meta_beginDate, meta_endDate):
     meta_start_date = parser.parse(meta_beginDate)
@@ -139,9 +177,13 @@ def prepare_model(start_date, end_date, region, path):
     end_date_str = end_date.strftime('%Y-%m-%d')+' 00:00:00'
     
     print("Generating new model"+'/model_'+start_date.strftime('%Y-%m-%d')+'_'+end_date.strftime('%Y-%m-%d')+'/')
-    shutil.copytree(path+region+'/model', path+region+'/model_'+start_date.strftime('%Y-%m-%d')+'_'+end_date.strftime('%Y-%m-%d')+'/')
+    try:
+        shutil.copytree(path+region+'/model', path+region+'/model_'+start_date.strftime('%Y-%m-%d')+'_'+end_date.strftime('%Y-%m-%d')+'/')
+        
+    except FileExistsError:
+        shutil.rmtree(path+region+'/model_'+start_date.strftime('%Y-%m-%d')+'_'+end_date.strftime('%Y-%m-%d')+'/')
+        shutil.copytree(path+region+'/model', path+region+'/model_'+start_date.strftime('%Y-%m-%d')+'_'+end_date.strftime('%Y-%m-%d')+'/')
     base_path = path+region+'/model_'+start_date.strftime('%Y-%m-%d')+'_'+end_date.strftime('%Y-%m-%d')+'/'
-
     fmt = '%Y-%m-%d %H:%M:%S'
     ini_date = datetime.strptime(ini_date_str, fmt)
     end_date = datetime.strptime(end_date_str, fmt)    
@@ -240,8 +282,13 @@ def prepare_model(start_date, end_date, region, path):
     #f2 = open(base_path+'test_1_v2.mdf','w')
     os.rename(base_path+'test_1.mdf', base_path+'test_old.mdf')
     os.rename(base_path+'test_1_v2.mdf',base_path+'test_1.mdf')
-    print("PaaS Orchestrator disconnected. Run the model manually")
-    return path+region+'/model_'+start_date.strftime('%Y-%m-%d')+'_'+end_date.strftime('%Y-%m-%d')+'/'
+    try:
+        deployment_id = launch_orchestrator_job('hydro',region+'/model_'+start_date.strftime('%Y-%m-%d')+'_'+end_date.strftime('%Y-%m-%d')+'/')
+    except:
+        print("PaaS Orchestrator disconnected. Run the model manually")
+        return path+region+'/model_'+start_date.strftime('%Y-%m-%d')+'_'+end_date.strftime('%Y-%m-%d')+'/'
+    
+    return deployment_id
     
 def temp_map(file, ini_date, end_date, z):
 
@@ -264,3 +311,83 @@ def temp_map(file, ini_date, end_date, z):
         plt.ylabel('lat')
         plt.title("Map Temp {}, prof = {} meters".format(end_date, z))
         plt.show()
+        
+def get_access_token(url):
+    if url is None:
+        url = 'https://iam-test.indigo-datacloud.eu/token'
+    #TODO manage exceptions
+    access_token = os.environ['OAUTH2_AUTHORIZE_TOKEN']
+    refresh_token = os.environ['OAUTH2_REFRESH_TOKEN']
+
+    IAM_CLIENT_ID = os.environ['IAM_CLIENT_ID']
+    IAM_CLIENT_SECRET = os.environ['IAM_CLIENT_SECRET']
+
+    data = {'refresh_token': refresh_token, 'grant_type': 'refresh_token', 'client_id':IAM_CLIENT_ID, 'client_secret':IAM_CLIENT_SECRET}
+    headers = {'Content-Type': 'application/json'}
+    url = url+"?grant_type=refresh_token&refresh_token="+refresh_token+'&client_id='+IAM_CLIENT_ID+'&client_secret='+IAM_CLIENT_SECRET
+
+    r = requests.post(url, headers=headers) #GET token
+    print("Rquesting access token: %s" % r.status_code) #200 means that the resource exists
+    access_token = json.loads(r.content)['access_token']
+    return access_token
+
+def launch_orchestrator_job(model_type,model_path):
+
+    access_token = get_access_token('https://iam-test.indigo-datacloud.eu/token')
+    headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer '+access_token}
+
+    tosca_file = ''
+    if model_type == 'hydro':
+        tosca_file = ".HY_MODEL.yml"
+
+    with open(tosca_file, 'r') as myfile:
+        tosca = myfile.read()
+
+    data = {"parameters" : {   
+                "cpus" : 1,
+                "mem" : "4096 MB",
+                "onedata_provider" : "cloud-90-147-75-163.cloud.ba.infn.it",
+                "model_space_name" : "LifeWatch",
+                "model_path" : model_path,
+                "output_filenames" : "trim-test_1.nc",
+                "onedata_zone" : "https://onezone.cloud.cnaf.infn.it",
+                "input_config_file" : "config_d_hydro.xml"
+                 },
+            "template" : tosca
+            }
+
+    url = 'https://indigo-paas.cloud.ba.infn.it/orchestrator/deployments/'
+    r = requests.post(url, headers=headers,data=json.dumps(data)) #GET
+    print("Status code: %s" % r.status_code) #200 means that the resource exists
+    print(r.headers)
+    txt = json.loads(r.text)
+    print (json.dumps(txt, indent=2, sort_keys=True))
+    #print(r.text)
+    #print(r.reason)
+    deployment_id = json.loads(r.content)['uuid']
+    print("Deployment ID: %s" % deployment_id)
+    return deployment_id
+    
+def orchestrator_job_status(deployment_id):
+    #TODO manage exceptions
+    access_token = get_access_token('https://iam.extreme-datacloud.eu/token')
+    url =  'https://indigo-paas.cloud.ba.infn.it/orchestrator/deployments/'+deployment_id
+    headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer '+access_token}
+    r = requests.get(url, headers=headers) #GET token
+    print("Status code: %s" % r.status_code)
+    txt = json.loads(r.text)
+    print (json.dumps(txt, indent=2, sort_keys=True))
+    #print(r.text)
+    #print(r.reason)
+    return r.content
+
+def orchestrator_list_deployments(orchestrator_url):
+    #TODO manage exceptions
+    access_token = get_access_token('https://iam-test.indigo-datacloud.eu/token')
+    if orchestrator_url is None:
+        orchestrator_url = 'https://indigo-paas.cloud.ba.infn.it/orchestrator/'
+    
+    url = orchestrator_url + 'deployments?createdBy=' + os.environ['JUPYTERHUB_USER'] + '@https://iam-test.indigo-datacloud.eu/'
+    headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer '+access_token}
+    r = requests.get(url, headers=headers) #GET
+    return json.loads(r.content)['content']
