@@ -351,6 +351,7 @@ def launch_orchestrator_job(model_type,model_path):
                 "model_path" : model_path,
                 "output_filenames" : "trim-test_1.nc",
                 "onedata_zone" : "https://onezone.cloud.cnaf.infn.it",
+                "onedata_token" : os.environ['ONEDATA_TOKEN'],
                 "input_config_file" : "config_d_hydro.xml"
                  },
             "template" : tosca
@@ -370,7 +371,7 @@ def launch_orchestrator_job(model_type,model_path):
     
 def orchestrator_job_status(deployment_id):
     #TODO manage exceptions
-    access_token = get_access_token('https://iam-test.indigo-datacloud.eu/token')
+    access_token = get_access_token('https://iam.extreme-datacloud.eu/token')
     url =  'https://indigo-paas.cloud.ba.infn.it/orchestrator/deployments/'+deployment_id
     headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer '+access_token}
     r = requests.get(url, headers=headers) #GET token
