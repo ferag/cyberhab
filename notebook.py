@@ -346,8 +346,8 @@ def launch_orchestrator_job(model_type,model_path):
     data = {"parameters" : {   
                 "cpus" : 1,
                 "mem" : "4096 MB",
-                "onedata_provider" : "cloud-90-147-75-163.cloud.ba.infn.it",
-                "model_space_name" : "LifeWatch",
+                "onedata_provider" : "vm027.pub.cloud.ifca.es",
+                "model_space_name" : "cyberhab",
                 "model_path" : model_path,
                 "output_filenames" : "trim-test_1.nc",
                 "onedata_zone" : "https://onezone.cloud.cnaf.infn.it",
@@ -371,7 +371,7 @@ def launch_orchestrator_job(model_type,model_path):
     
 def orchestrator_job_status(deployment_id):
     #TODO manage exceptions
-    access_token = get_access_token('https://iam.extreme-datacloud.eu/token')
+    access_token = get_access_token('https://iam-test.indigo-datacloud.eu/token')
     url =  'https://indigo-paas.cloud.ba.infn.it/orchestrator/deployments/'+deployment_id
     headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer '+access_token}
     r = requests.get(url, headers=headers) #GET token
