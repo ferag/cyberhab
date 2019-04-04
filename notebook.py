@@ -26,7 +26,7 @@ from wq_modules import config
 
 #widget
 import ipywidgets as widgets
-from ipywidgets import HBox, VBox
+from ipywidgets import HBox, VBox, Layout
 from IPython.display import display
 from IPython.display import clear_output
 
@@ -74,9 +74,10 @@ def plot_satellite(region_buttons, ini_date, end_date, actions):
         sentinel_files = s.__dict__['output']
 
         #download landsat files
-        l = landsat.Landsat(sd, ed, region, act)
-        l.download()
-        landsat_files = l.__dict__['output']
+        #l = landsat.Landsat(sd, ed, region, act)
+        #l.download()
+        #landsat_files = l.__dict__['output']
+        landsat_files = ''
 
         if onedata_mode == 1:
             utils.clean_temporal_path()
@@ -244,24 +245,42 @@ def prepare_model(start_date, end_date, region, path):
     print("Getting data")
 
     #Uniform output
-    out_dic = {1: {'Name':'Presa','Flow': 0.5}}
-    presa_bct = 'Presa.bct'
+    out_dic = {}
+    presa_bct = ''
+    if region == 'CdP':
+        out_dic = {1: {'Name':'Presa','Flow': 0.5}}
+        presa_bct = 'Presa.bct'
+    elif region == 'Sanabria':
+        out_dic = {1: {'Name':'sanabria_out','Flow': 0.5}}
+        presa_bct = 'Presa.bct'
     #input_csv = 'data/'
     #csv_to_bct(out_dic,presa_bct,input_csv,ini_date,end_date)
     modeling_file.gen_uniform_output_bct(out_dic,base_path+presa_bct,ini_date,end_date)
-
-    out_dic = {1: {'Name':'Presa','Temperature': 12.5, 'Salinity': 0.03}}
-    presa_bcc = 'Presa.bcc'
+    print("BCT file created")
+    
+    if region == 'CdP':
+        out_dic = {1: {'Name':'Presa','Temperature': 12.5, 'Salinity': 0.03}}
+        presa_bcc = 'Presa.bcc'
+    elif region == 'Sanabria':
+        out_dic = {1: {'Name':'sanabria_out','Temperature': 0.0, 'Salinity': 0.0}}
+        presa_bcc = 'Presa.bcc'
+    
     modeling_file.gen_uniform_output_bcc(out_dic,base_path+presa_bcc,ini_date,end_date)
-
-    input_dic = {1: {'Name': 'Duero', 'Flow': 0.4, 'Temperature': 12.5, 'Salinity': 0.03}, 2: {'Name': 'Revinuesa', 'Flow': 0.4, 'Temperature': 12.5, 'Salinity': 0.03}, 3: {'Name':'Ebrillos', 'Flow': 0.4, 'Temperature': 12.5, 'Salinity': 0.03}, 4: {'Name': 'Dehesa', 'Flow': 0.4, 'Temperature': 12.5, 'Salinity': 0.03}, 5: {'Name': 'Remonicio', 'Flow': 0.4, 'Temperature': 12.5, 'Salinity': 0.03}}
+    print("BCC file created")
+    
+    if region == 'CdP':
+        input_dic = {1: {'Name': 'Duero', 'Flow': 0.4, 'Temperature': 12.5, 'Salinity': 0.03}, 2: {'Name': 'Revinuesa', 'Flow': 0.4, 'Temperature': 12.5, 'Salinity': 0.03}, 3: {'Name':'Ebrillos', 'Flow': 0.4, 'Temperature': 12.5, 'Salinity': 0.03}, 4: {'Name': 'Dehesa', 'Flow': 0.4, 'Temperature': 12.5, 'Salinity': 0.03}, 5: {'Name': 'Remonicio', 'Flow': 0.4, 'Temperature': 12.5, 'Salinity': 0.03}}
+        input_dis = 'tributaries.dis'
+    elif region == 'Sanabria':
+        input_dic = {1: {'Name': 'Tera', 'Flow': 0.4, 'Temperature': 12.5, 'Salinity': 0.03}, 2: {'Name': 'Sorribas', 'Flow': 0.4, 'Temperature': 12.5, 'Salinity': 0.03}}
     input_dis = 'tributaries.dis'
+    
     #input_dis_csv_folder = 'data/'
     #try:
     #    csv_to_dis(input_dic,input_dis_csv_folder,input_dis,ini_date,end_date)
     #except:
     modeling_file.gen_uniform_intput_dis(input_dic,base_path+input_dis,ini_date,end_date)
-
+    print("DIS file created")
     #Parameters update
     dic = {'Itdate': "#"+ini_date.strftime('%Y-%m-%d')+"#\n", 
            'Tstart': "%i\n" % modeling_file.minutes_between_date(datetime.strptime(ini_date.strftime('%Y-%m-%d'),'%Y-%m-%d'),ini_date), 
@@ -275,7 +294,7 @@ def prepare_model(start_date, end_date, region, path):
           }
     #Update params
     modeling_file.update_param_value(dic,f1,f2)
-
+    print("MDF file updated")
     f1.close()
 
     #f1 = open(base_path+'test_1.mdf','r')
@@ -392,3 +411,132 @@ def orchestrator_list_deployments(orchestrator_url):
     headers = {'Content-Type': 'application/json', 'Authorization': 'Bearer '+access_token}
     r = requests.get(url, headers=headers) #GET
     return json.loads(r.content)['content']
+onedata_wid = widgets.Text(
+    value='',
+    placeholder='Onedata token',
+    description='Onedata token:',
+    disabled=False
+)
+onedata_wid.value = os.environ['ONECLIENT_AUTHORIZATION_TOKEN']
+
+region_buttons = widgets.ToggleButtons(
+    options=['CdP','Sanabria'],
+    description='Reservoirs:',
+)
+ini_date = widgets.DatePicker(
+    description='Initial Date',
+    disabled=False
+)
+end_date = widgets.DatePicker(
+    description='End Date',
+    disabled=False
+)
+actions = widgets.SelectMultiple(
+    options=['meteo', 'water_mask', 'water_surface', 'cloud_mask', 'cloud_coverage', 'list_files', 'model'],
+    value=['meteo'],
+    #rows=10,
+    description='Actions',
+    disabled=False,
+    layout=Layout(width='75%')
+)
+tab = VBox(children=[onedata_wid, region_buttons, ini_date, end_date, actions])
+
+button = widgets.Button(
+    description='Run',
+)
+
+last_model=''
+
+out = widgets.Output()
+@button.on_click
+def plot_on_click(b):
+    with out:
+        clear_output()
+        if actions.value[0] == 'meteo':
+            plot_meteo(region_buttons,ini_date,end_date,actions)
+        elif actions.value[0] == 'list_files':
+            find_dataset_type(ini_date.value,end_date.value,'',onedata_wid.value)
+        elif actions.value[0] == 'model':
+            last_model=prepare_model(ini_date.value,end_date.value, region_buttons.value, '/home/jovyan/datasets/cyberhab/')
+        else:
+            plot_satellite(region_buttons,ini_date,end_date,actions)
+
+vbox1 = VBox(children=[tab,button,out])
+#Jobs
+job_list=[]
+for e in orchestrator_list_deployments(None):
+    job_list.append(e['uuid'])
+
+selection_jobs = widgets.Select(
+    options=job_list,
+    value=None,
+    # rows=10,
+    description='Job List',
+    disabled=False,
+    layout=Layout(width='75%')
+)
+
+button2 = widgets.Button(
+    description='Show deployment',
+)
+
+out2 = widgets.Output()
+
+@button2.on_click
+def model_on_click(b):
+    with out2:
+        clear_output()
+        orchestrator_job_status(selection_jobs.value)
+
+vbox2 = VBox(children=[selection_jobs,button2,out2])
+
+#Model visualization
+onedata_token = os.environ['ONECLIENT_AUTHORIZATION_TOKEN']
+models = find_models(onedata_token)
+opt = []
+for e in models:
+    opt.append(e['key']['region']+'/model_'+e['key']['beginDate']+'_'+e['key']['endDate']+'/trim-test_1.nc')
+
+selection = widgets.Select(
+    options=opt,
+    value=None,
+    # rows=10,
+    description='Models',
+    disabled=False,
+    layout=Layout(width='75%')
+)
+
+depth_wid = widgets.IntSlider(
+    value=7,
+    min=0,
+    max=35,
+    step=1,
+    description='Test:',
+    disabled=False,
+    continuous_update=False,
+    orientation='horizontal',
+    readout=True,
+    readout_format='d'
+)
+button3 = widgets.Button(
+    description='Show model output',
+)
+
+out3 = widgets.Output()
+
+@button3.on_click
+def model_on_click(b):
+    with out3:
+        clear_output()
+        for e in models:
+            temp_map('/home/jovyan/datasets/cyberhab/' + selection.value, e['key']['beginDate']+' 00:00:00', e['key']['endDate']+' 01:00:00', depth_wid.value)
+            break
+
+vbox3 = VBox(children=[selection,depth_wid,button3,out3])
+
+#Menu
+menu = widgets.Tab()
+menu.children = [vbox1, vbox2, vbox3]
+menu.set_title(0,'Data Ingestion')
+menu.set_title(1,'Job status')
+menu.set_title(2,'Model visualization')
